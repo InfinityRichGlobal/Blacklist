@@ -68,6 +68,22 @@
     button:hover {
       background-color: #555;
     }
+    
+    .loader {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid #333;
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin: 10px auto;
+      display: none;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
 
     #content {
       display: none;
@@ -113,6 +129,7 @@
       <h1>THE BLACKLIST V4</h1>
       <input type="text" placeholder="Username" id="username" />
       <input type="password" placeholder="Password" id="password" />
+      <div class="loader" id="loginLoader"></div>
       <button onclick="login()">Login</button>
     </div>
   </div>
@@ -123,54 +140,47 @@
   </div>
 
   <script>
-  // Encrypt the credentials - this is a simple obfuscation technique
-  const encCredentials = {
-    // These are encrypted values of credentials
-    users: [
-      {u: "6a81259e33aa4e63b73e53f0a0e5b87d", p: "9d8c3016775a6f9a082a2fdc1ca90bdd"}, 
-      {u: "4af952fbcd7da3ee1309bf8add4ff6f1", p: "8ba0e3b066a2de3acb46de4ea5c69feb"}  
-    ]
-  };
-  
-  // Simple hash function (MD5-like for demonstration)
-  function hashString(str) {
-    let hash = 0;
-    if (str.length === 0) return hash.toString(16);
-    
-    for (let i = 0; i < str.length; i++) {
-      const char = str.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash; // Convert to 32bit integer
-    }
-    
-    // Make it a hex string like MD5
-    const hexHash = (hash >>> 0).toString(16).padStart(8, '0') + 
-                   ((hash * 13) >>> 0).toString(16).padStart(8, '0');
-    return hexHash;
-  }
-  
-  function login() {
+  async function login() {
     const username = document.getElementById("username").value;
     const password = document.getElementById("password").value;
     
-    // Hash the entered credentials
-    const hashedUser = hashString(username);
-    const hashedPass = hashString(password);
+    // Show loading indicator
+    document.getElementById("loginLoader").style.display = "block";
     
-    // Check against stored hashed credentials
-    let authenticated = false;
-    for (const user of encCredentials.users) {
-      if (user.u === hashedUser && user.p === hashedPass) {
-        authenticated = true;
-        break;
+    try {
+      // ดึงข้อมูลจากไฟล์ JSON ภายนอก
+      // ในที่นี้สมมติว่าไฟล์อยู่ที่ auth.json แต่คุณสามารถเปลี่ยนเป็น URL ที่เก็บข้อมูลจริงได้
+      const response = await fetch('auth.json');
+      
+      if (!response.ok) {
+        throw new Error('ไม่สามารถโหลดข้อมูลการยืนยันตัวตนได้');
       }
-    }
-    
-    if (authenticated) {
-      document.querySelector(".container").style.display = "none";
-      document.getElementById("content").style.display = "block";
-    } else {
-      alert("Invalid username or password");
+      
+      const authData = await response.json();
+      
+      // ตรวจสอบข้อมูลการเข้าสู่ระบบ
+      let authenticated = false;
+      
+      for (const user of authData.users) {
+        if (user.username === username && user.password === password) {
+          authenticated = true;
+          break;
+        }
+      }
+      
+      // ซ่อนตัวแสดงการโหลด
+      document.getElementById("loginLoader").style.display = "none";
+      
+      if (authenticated) {
+        document.querySelector(".container").style.display = "none";
+        document.getElementById("content").style.display = "block";
+      } else {
+        alert("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+      }
+    } catch (error) {
+      console.error('เกิดข้อผิดพลาด:', error);
+      document.getElementById("loginLoader").style.display = "none";
+      alert("เกิดข้อผิดพลาดในการตรวจสอบข้อมูล โปรดลองอีกครั้ง");
     }
   }
 
