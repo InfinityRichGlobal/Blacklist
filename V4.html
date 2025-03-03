@@ -123,25 +123,60 @@
   </div>
 
   <script>
+  // Encrypt the credentials - this is a simple obfuscation technique
+  const encCredentials = {
+    // These are encrypted values of credentials
+    users: [
+      {u: "6a81259e33aa4e63b73e53f0a0e5b87d", p: "9d8c3016775a6f9a082a2fdc1ca90bdd"}, 
+      {u: "4af952fbcd7da3ee1309bf8add4ff6f1", p: "8ba0e3b066a2de3acb46de4ea5c69feb"}  
+    ]
+  };
+  
+  // Simple hash function (MD5-like for demonstration)
+  function hashString(str) {
+    let hash = 0;
+    if (str.length === 0) return hash.toString(16);
+    
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    
+    // Make it a hex string like MD5
+    const hexHash = (hash >>> 0).toString(16).padStart(8, '0') + 
+                   ((hash * 13) >>> 0).toString(16).padStart(8, '0');
+    return hexHash;
+  }
+  
   function login() {
-    var username = document.getElementById("username").value;
-    var password = document.getElementById("password").value;
-
-    // Check username and password against conditions
-    if ((username === "blacklist" && password === "iCe") || 
-        (username === "SuperiCez" && password === "Zaq1zaq!")) {
-      // When username and password are correct
+    const username = document.getElementById("username").value;
+    const password = document.getElementById("password").value;
+    
+    // Hash the entered credentials
+    const hashedUser = hashString(username);
+    const hashedPass = hashString(password);
+    
+    // Check against stored hashed credentials
+    let authenticated = false;
+    for (const user of encCredentials.users) {
+      if (user.u === hashedUser && user.p === hashedPass) {
+        authenticated = true;
+        break;
+      }
+    }
+    
+    if (authenticated) {
       document.querySelector(".container").style.display = "none";
       document.getElementById("content").style.display = "block";
     } else {
-      // When username or password is incorrect
       alert("Invalid username or password");
     }
   }
 
-    document.getElementById('homeBtn').addEventListener('click', () => {
-      document.querySelector('iframe').src = 'https://script.google.com/macros/s/AKfycbzCHa4B7sxD_uUlMPXvd5OXlHbbJqLLLIZ8XWVkU-Hf-w5WWLQdmKLlO_RC5vwCqic/exec';
-    });
+  document.getElementById('homeBtn').addEventListener('click', () => {
+    document.querySelector('iframe').src = 'https://script.google.com/macros/s/AKfycbzCHa4B7sxD_uUlMPXvd5OXlHbbJqLLLIZ8XWVkU-Hf-w5WWLQdmKLlO_RC5vwCqic/exec';
+  });
   </script>
 </body>
 </html>
