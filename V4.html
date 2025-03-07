@@ -140,53 +140,157 @@
   </div>
 
   <script>
-  async function login() {
-    const username = document.getElementById("username").value;
-    const password = document.getElementById("password").value;
-    
-    // Show loading indicator
-    document.getElementById("loginLoader").style.display = "block";
-    
-    try {
-      // ดึงข้อมูลจากไฟล์ JSON ภายนอก
-      // ในที่นี้สมมติว่าไฟล์อยู่ที่ auth.json แต่คุณสามารถเปลี่ยนเป็น URL ที่เก็บข้อมูลจริงได้
-      const response = await fetch('auth.json');
-      
-      if (!response.ok) {
-        throw new Error('ไม่สามารถโหลดข้อมูลการยืนยันตัวตนได้');
-      }
-      
-      const authData = await response.json();
-      
-      // ตรวจสอบข้อมูลการเข้าสู่ระบบ
-      let authenticated = false;
-      
-      for (const user of authData.users) {
-        if (user.username === username && user.password === password) {
-          authenticated = true;
-          break;
-        }
-      }
-      
-      // ซ่อนตัวแสดงการโหลด
-      document.getElementById("loginLoader").style.display = "none";
-      
-      if (authenticated) {
-        document.querySelector(".container").style.display = "none";
-        document.getElementById("content").style.display = "block";
-      } else {
-        alert("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
-      }
-    } catch (error) {
-      console.error('เกิดข้อผิดพลาด:', error);
-      document.getElementById("loginLoader").style.display = "none";
-      alert("เกิดข้อผิดพลาดในการตรวจสอบข้อมูล โปรดลองอีกครั้ง");
-    }
-  }
 
-  document.getElementById('homeBtn').addEventListener('click', () => {
-    document.querySelector('iframe').src = 'https://script.google.com/macros/s/AKfycbzCHa4B7sxD_uUlMPXvd5OXlHbbJqLLLIZ8XWVkU-Hf-w5WWLQdmKLlO_RC5vwCqic/exec';
-  });
+// เพิ่มการประกาศตัวแปรสำหรับเก็บเวลาเริ่มต้นการใช้งาน
+let sessionStartTime;
+
+async function login() {
+  const username = document.getElementById("username").value;
+  const password = document.getElementById("password").value;
+  
+  // แสดงตัวโหลด
+  document.getElementById("loginLoader").style.display = "block";
+  
+  try {
+    // ดึงข้อมูลจากไฟล์ JSON ภายนอก
+    const response = await fetch('auth.json');
+    
+    if (!response.ok) {
+      throw new Error('ไม่สามารถโหลดข้อมูลการยืนยันตัวตนได้');
+    }
+    
+    const authData = await response.json();
+    
+    // ตรวจสอบข้อมูลการเข้าสู่ระบบ
+    let authenticated = false;
+    
+    for (const user of authData.users) {
+      if (user.username === username && user.password === password) {
+        authenticated = true;
+        break;
+      }
+    }
+    
+    // ซ่อนตัวแสดงการโหลด
+    document.getElementById("loginLoader").style.display = "none";
+    
+    if (authenticated) {
+      // บันทึกเวลาเริ่มต้นเซสชัน
+      sessionStartTime = new Date();
+      
+      // บันทึกข้อมูลการล็อกอิน
+      logUserLogin(username);
+      
+      document.querySelector(".container").style.display = "none";
+      document.getElementById("content").style.display = "block";
+      
+      // เพิ่ม event listener สำหรับการออกจากระบบหรือปิดแท็บ
+      window.addEventListener('beforeunload', logUserLogout);
+    } else {
+      // บันทึกข้อมูลการล็อกอินล้มเหลว
+      logFailedLogin(username);
+      alert("ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง");
+    }
+  } catch (error) {
+    console.error('เกิดข้อผิดพลาด:', error);
+    document.getElementById("loginLoader").style.display = "none";
+    alert("เกิดข้อผิดพลาดในการตรวจสอบข้อมูล โปรดลองอีกครั้ง");
+  }
+}
+
+// ฟังก์ชันสำหรับบันทึกการล็อกอินสำเร็จ
+function logUserLogin(username) {
+  const timestamp = new Date();
+  const logData = {
+    action: 'login',
+    username: username,
+    timestamp: timestamp.toISOString(),
+    localTime: timestamp.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+    userAgent: navigator.userAgent,
+    ipAddress: '', // จะถูกบันทึกโดย Google Apps Script
+  };
+  
+  // ส่งข้อมูลไปยัง Google Apps Script
+  sendLogToServer(logData);
+}
+
+// ฟังก์ชันสำหรับบันทึกการออกจากระบบ
+function logUserLogout() {
+  if (!sessionStartTime) return;
+  
+  const timestamp = new Date();
+  const sessionDuration = Math.round((timestamp - sessionStartTime) / 1000); // เวลาในหน่วยวินาที
+  
+  const logData = {
+    action: 'logout',
+    username: document.getElementById("username").value,
+    timestamp: timestamp.toISOString(),
+    localTime: timestamp.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+    sessionDuration: formatDuration(sessionDuration),
+    userAgent: navigator.userAgent,
+    ipAddress: '', // จะถูกบันทึกโดย Google Apps Script
+  };
+  
+  // ส่งข้อมูลไปยัง Google Apps Script
+  // ในกรณีการออกจากระบบ เราใช้ navigator.sendBeacon เพื่อให้แน่ใจว่าข้อมูลจะถูกส่งก่อนปิดหน้า
+  navigator.sendBeacon('https://script.google.com/macros/s/AKfycbz5Cl-xLcyU97Yp0B4WRMlcIfowvGirpsPD2HELng2RC3_vknF8ZKjUD0Zs4JZMTtsi/exec', new Blob([JSON.stringify(logData)], {type: 'application/json'}));
+}
+
+// ฟังก์ชันสำหรับบันทึกการล็อกอินล้มเหลว
+function logFailedLogin(username) {
+  const timestamp = new Date();
+  const logData = {
+    action: 'failed_login',
+    username: username,
+    timestamp: timestamp.toISOString(),
+    localTime: timestamp.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' }),
+    userAgent: navigator.userAgent,
+    ipAddress: '', // จะถูกบันทึกโดย Google Apps Script
+  };
+  
+  // ส่งข้อมูลไปยัง Google Apps Script
+  sendLogToServer(logData);
+}
+
+// ฟังก์ชันสำหรับแปลงเวลาเป็นรูปแบบ ชั่วโมง:นาที:วินาที
+function formatDuration(seconds) {
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const remainingSeconds = seconds % 60;
+  
+  return `${padZero(hours)}:${padZero(minutes)}:${padZero(remainingSeconds)}`;
+}
+
+// ฟังก์ชันเสริมสำหรับเติม 0 ข้างหน้าตัวเลขหลักเดียว
+function padZero(num) {
+  return num.toString().padStart(2, '0');
+}
+
+// ฟังก์ชันสำหรับส่งข้อมูลการล็อกไปยัง Google Apps Script
+async function sendLogToServer(logData) {
+  try {
+    const response = await fetch('https://script.google.com/macros/s/AKfycbz5Cl-xLcyU97Yp0B4WRMlcIfowvGirpsPD2HELng2RC3_vknF8ZKjUD0Zs4JZMTtsi/exec', {
+      method: 'POST',
+      body: JSON.stringify(logData),
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      console.error('Failed to send log data');
+    }
+  } catch (error) {
+    console.error('Error sending log data:', error);
+  }
+}
+
+document.getElementById('homeBtn').addEventListener('click', () => {
+  document.querySelector('iframe').src = 'https://script.google.com/macros/s/AKfycbzCHa4B7sxD_uUlMPXvd5OXlHbbJqLLLIZ8XWVkU-Hf-w5WWLQdmKLlO_RC5vwCqic/exec';
+});
+
+
+    
   </script>
 </body>
 </html>
