@@ -152,8 +152,9 @@ async function login() {
   document.getElementById("loginLoader").style.display = "block";
   
   try {
-    // ดึงข้อมูลจากไฟล์ JSON ภายนอก
-    const response = await fetch('auth.json');
+    // ดึงข้อมูลจาก Google Apps Script
+    const scriptUrl = 'https://script.google.com/macros/s/AKfycbx2WtME4vOsOUYmCyFih7h9paWXjyHQJs0oCzBsERSJ7NCULMurIGndm4EjtZDj3esF/exec';
+    const response = await fetch(`${scriptUrl}?action=getUsers`);
     
     if (!response.ok) {
       throw new Error('ไม่สามารถโหลดข้อมูลการยืนยันตัวตนได้');
@@ -170,6 +171,8 @@ async function login() {
         break;
       }
     }
+
+    
     
     // ซ่อนตัวแสดงการโหลด
     document.getElementById("loginLoader").style.display = "none";
